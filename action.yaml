@@ -2,52 +2,95 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2025 The Linux Foundation
 
-# actions-template
-name: "🛠️ Actions Template"
-description: "Description of action"
-# Any relevant notes/observations can go here
+# vars-to-env-action
+name: "📤 Vars to Env"
+description: >-
+  Export the keys of a JSON object, such as toJSON(vars) or toJSON(secrets),
+  as environment variables for later steps
 
 inputs:
-  input:
-    description: "Description of input"
+  secrets:
+    description: >-
+      JSON object to export, normally toJSON(vars) or toJSON(secrets)
     required: true
+  prefix:
+    description: "Prefix added to each name that removeprefix did not shorten"
+    required: false
+    default: ""
+  include:
+    description: >-
+      Comma-separated regular expressions; export only keys matching one
+    required: false
+    default: ""
+  exclude:
+    description: >-
+      Comma-separated regular expressions; skip keys matching one
+      (github_token is always skipped)
+    required: false
+    default: ""
+  convert:
+    description: "Name case conversion: upper, lower or none"
+    required: false
+    default: "upper"
+  override:
+    description: "Overwrite variables that already hold a non-empty value"
+    required: false
+    default: "false"
+  removeprefix:
+    description: "Literal prefix removed from keys that start with it"
+    required: false
+    default: ""
+  tracelog:
+    description: "Log each filtering and renaming decision"
+    required: false
+    default: "false"
+  mask:
+    description: "Mask every exported value in later log output"
+    required: false
+    default: "false"
 
 outputs:
-  output:
-    description: "Description of output"
-    value: ${{ steps.code.outputs.output }}
+  count:
+    description: "Number of variables exported"
+    value: ${{ steps.export.outputs.count }}
+  names:
+    description: >-
+      Comma-separated names of the exported variables, in export order
+    value: ${{ steps.export.outputs.names }}
 
 runs:
   using: "composite"
   steps:
-    - name: "Friendly Name"
-      id: code
+    - name: "Export variables"
+      id: export
       shell: bash
       env:
-        INPUT_VALUE: ${{ inputs.input }}
+        INPUT_SECRETS: ${{ inputs.secrets }}
+        INPUT_PREFIX: ${{ inputs.prefix }}
+        INPUT_INCLUDE: ${{ inputs.include }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_CONVERT: ${{ inputs.convert }}
+        INPUT_OVERRIDE: ${{ inputs.override }}
+        INPUT_REMOVEPREFIX: ${{ inputs.removeprefix }}
+        INPUT_TRACELOG: ${{ inputs.tracelog }}
+        INPUT_MASK: ${{ inputs.mask }}
       run: |
-        # Friendly Name
-        input="$INPUT_VALUE"
-        if [ -z "$input" ]; then
-          echo "Error: mandatory input was not set/configured ❌"
+        # Export variables
+        # Run each candidate rather than trusting PATH alone: on Windows,
+        # python3 can be the Microsoft Store alias, which is no interpreter.
+        python=""
+        for candidate in python3 python; do
+          if command -v "$candidate" >/dev/null 2>&1 &&
+            "$candidate" -c "" >/dev/null 2>&1; then
+            python="$candidate"
+            break
+          fi
+        done
+        if [ -z "$python" ]; then
+          echo "::error::vars-to-env-action needs Python 3.9 or newer," \
+            "but neither python3 nor python runs"
           exit 1
         fi
-
-        # Write the output using the multiline heredoc format with a random
-        # delimiter so that an input containing newlines cannot inject
-        # additional keys into $GITHUB_OUTPUT (output-file injection). The
-        # delimiter is built from shell-builtin randomness (no external
-        # tools such as openssl/uuidgen, which are not guaranteed on
-        # self-hosted runners) and regenerated until it is provably absent
-        # from the value being emitted.
-        delimiter="ghadelim_${RANDOM}${RANDOM}${RANDOM}${RANDOM}"
-        while [[ "$input" == *"$delimiter"* ]]; do
-          delimiter="ghadelim_${RANDOM}${RANDOM}${RANDOM}${RANDOM}"
-        done
-        {
-          printf '%s<<%s\n' 'output' "$delimiter"
-          printf '%s\n' "$input"
-          printf '%s\n' "$delimiter"
-        } >> "$GITHUB_OUTPUT"
-        echo "Action received: $input ✅"
-        echo "Action received: $input ✅" >> "$GITHUB_STEP_SUMMARY"
+        # -B keeps bytecode out of the action directory, -E ignores PYTHON*
+        # variables such as PYTHONPATH, -s skips user site-packages.
+        exec "$python" -B -E -s "${GITHUB_ACTION_PATH}/entrypoint.py"

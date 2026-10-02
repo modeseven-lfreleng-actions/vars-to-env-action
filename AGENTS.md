@@ -33,5 +33,26 @@ a pull request, not the full set:
 
 ## Repository specifics
 
-None: working in this repository needs nothing beyond the organisation
-guidelines.
+The action and its tests use the Python standard library alone, so they
+need no install step. Run the unit tests from the repository root with
+any Python 3.9 or newer, and also with 3.9 itself, the oldest supported
+version:
+
+```bash
+python3 -m unittest discover -s tests -v
+uv run --python 3.9 python -m unittest discover -s tests
+```
+
+`tests/reference/vectors.json` holds golden results recorded from the
+Node.js action this one replaces, infovista-opensource/vars-to-env-action
+at commit 28db16e (tag 1.0.2). Never edit it by hand. Regenerate it when
+adding or changing a case in `tests/reference/generate.py`, or when
+matching a newer reference release. That needs Linux or macOS, Node.js
+and a checkout of the reference at the matching commit:
+
+```bash
+python3 tests/reference/generate.py <checkout>/dist/index.js [node]
+```
+
+A case where this action differs on purpose belongs in `DEVIATIONS` in
+`tests/test_reference.py`, and in the README's table of differences.

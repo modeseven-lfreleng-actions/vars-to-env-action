@@ -1,0 +1,944 @@
+{
+  "reference": {
+    "commit": "28db16e6138358faca56bbe963587e9782c38302",
+    "describe": "1.0.2",
+    "node": "v26.8.2",
+    "eol": "\n",
+    "fold_case": false
+  },
+  "regenerate": "python3 tests/reference/generate.py <checkout>/dist/index.js [node]",
+  "cases": [
+    {
+      "name": "basic",
+      "environ": {
+        "INPUT_SECRETS": "{\"alpha\":\"one\",\"beta\":\"two\"}"
+      },
+      "exit_code": 0,
+      "github_env": "ALPHA<<ghadelimiter_<uuid>\none\nghadelimiter_<uuid>\nBETA<<ghadelimiter_<uuid>\ntwo\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> ALPHA",
+        "Exported envvar -> BETA",
+        ""
+      ]
+    },
+    {
+      "name": "empty-object",
+      "environ": {
+        "INPUT_SECRETS": "{}"
+      },
+      "exit_code": 0,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        ""
+      ]
+    },
+    {
+      "name": "empty-input",
+      "environ": {
+        "INPUT_SECRETS": ""
+      },
+      "exit_code": 1,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        "::error::Input required and not supplied: secrets",
+        ""
+      ]
+    },
+    {
+      "name": "whitespace-input",
+      "environ": {
+        "INPUT_SECRETS": "  \n\t "
+      },
+      "exit_code": 1,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        "::error::Cannot parse JSON secrets.%0AMake sure you add the following to this action:%0A%0Awith:%0A      secrets: ${{ toJSON(secrets) }}%0Aor:%0A      secrets: ${{ toJSON(vars) }}%0A",
+        ""
+      ]
+    },
+    {
+      "name": "invalid-json",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":"
+      },
+      "exit_code": 1,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        "::error::Cannot parse JSON secrets.%0AMake sure you add the following to this action:%0A%0Awith:%0A      secrets: ${{ toJSON(secrets) }}%0Aor:%0A      secrets: ${{ toJSON(vars) }}%0A",
+        ""
+      ]
+    },
+    {
+      "name": "top-level-null",
+      "environ": {
+        "INPUT_SECRETS": "null"
+      },
+      "exit_code": 1,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        "::error::Cannot convert undefined or null to object",
+        ""
+      ]
+    },
+    {
+      "name": "top-level-array",
+      "environ": {
+        "INPUT_SECRETS": "[\"x\",\"y\"]"
+      },
+      "exit_code": 0,
+      "github_env": "0<<ghadelimiter_<uuid>\nx\nghadelimiter_<uuid>\n1<<ghadelimiter_<uuid>\ny\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> 0",
+        "Exported envvar -> 1",
+        ""
+      ]
+    },
+    {
+      "name": "top-level-string",
+      "environ": {
+        "INPUT_SECRETS": "\"ab\""
+      },
+      "exit_code": 0,
+      "github_env": "0<<ghadelimiter_<uuid>\na\nghadelimiter_<uuid>\n1<<ghadelimiter_<uuid>\nb\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> 0",
+        "Exported envvar -> 1",
+        ""
+      ]
+    },
+    {
+      "name": "top-level-number",
+      "environ": {
+        "INPUT_SECRETS": "42"
+      },
+      "exit_code": 0,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        ""
+      ]
+    },
+    {
+      "name": "top-level-boolean",
+      "environ": {
+        "INPUT_SECRETS": "true"
+      },
+      "exit_code": 0,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        ""
+      ]
+    },
+    {
+      "name": "trimmed-input",
+      "environ": {
+        "INPUT_SECRETS": "\ufeff {\"a\":\"1\"} \n",
+        "INPUT_PREFIX": "  P_ ",
+        "INPUT_INCLUDE": " ^a "
+      },
+      "exit_code": 0,
+      "github_env": "P_A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> P_A",
+        ""
+      ]
+    },
+    {
+      "name": "nested-objects",
+      "environ": {
+        "INPUT_SECRETS": "{\"config\":{\"b\":1,\"a\":[true,null,{\"2\":\"x\",\"1\":\"y\",\"z\":{}}]},\"empty_list\":[],\"empty_object\":{},\"text\":\"{\\\"not\\\":\\\"parsed\\\"}\"}"
+      },
+      "exit_code": 0,
+      "github_env": "CONFIG<<ghadelimiter_<uuid>\n{\"b\":1,\"a\":[true,null,{\"1\":\"y\",\"2\":\"x\",\"z\":{}}]}\nghadelimiter_<uuid>\nEMPTY_LIST<<ghadelimiter_<uuid>\n[]\nghadelimiter_<uuid>\nEMPTY_OBJECT<<ghadelimiter_<uuid>\n{}\nghadelimiter_<uuid>\nTEXT<<ghadelimiter_<uuid>\n{\"not\":\"parsed\"}\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> CONFIG",
+        "Exported envvar -> EMPTY_LIST",
+        "Exported envvar -> EMPTY_OBJECT",
+        "Exported envvar -> TEXT",
+        ""
+      ]
+    },
+    {
+      "name": "value-types",
+      "environ": {
+        "INPUT_SECRETS": "{\"string\":\"text\",\"true\":true,\"false\":false,\"null\":null,\"zero\":0,\"neg_zero\":-0,\"one\":1,\"one_point_zero\":1.0,\"big\":1e21,\"e20\":1e20,\"small\":1.5e-7,\"micro\":0.000001,\"long\":12345678901234567890,\"neg\":-2.5,\"fraction\":0.1,\"max\":1.7976931348623157e308,\"min\":5e-324,\"overflow\":1e400,\"hundred\":100,\"exp\":123e-20,\"list\":[1,\"two\",null,false,1.0e2]}"
+      },
+      "exit_code": 0,
+      "github_env": "STRING<<ghadelimiter_<uuid>\ntext\nghadelimiter_<uuid>\nTRUE<<ghadelimiter_<uuid>\ntrue\nghadelimiter_<uuid>\nFALSE<<ghadelimiter_<uuid>\nfalse\nghadelimiter_<uuid>\nNULL<<ghadelimiter_<uuid>\n\nghadelimiter_<uuid>\nZERO<<ghadelimiter_<uuid>\n0\nghadelimiter_<uuid>\nNEG_ZERO<<ghadelimiter_<uuid>\n0\nghadelimiter_<uuid>\nONE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nONE_POINT_ZERO<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nBIG<<ghadelimiter_<uuid>\n1e+21\nghadelimiter_<uuid>\nE20<<ghadelimiter_<uuid>\n100000000000000000000\nghadelimiter_<uuid>\nSMALL<<ghadelimiter_<uuid>\n1.5e-7\nghadelimiter_<uuid>\nMICRO<<ghadelimiter_<uuid>\n0.000001\nghadelimiter_<uuid>\nLONG<<ghadelimiter_<uuid>\n12345678901234567000\nghadelimiter_<uuid>\nNEG<<ghadelimiter_<uuid>\n-2.5\nghadelimiter_<uuid>\nFRACTION<<ghadelimiter_<uuid>\n0.1\nghadelimiter_<uuid>\nMAX<<ghadelimiter_<uuid>\n1.7976931348623157e+308\nghadelimiter_<uuid>\nMIN<<ghadelimiter_<uuid>\n5e-324\nghadelimiter_<uuid>\nOVERFLOW<<ghadelimiter_<uuid>\nnull\nghadelimiter_<uuid>\nHUNDRED<<ghadelimiter_<uuid>\n100\nghadelimiter_<uuid>\nEXP<<ghadelimiter_<uuid>\n1.23e-18\nghadelimiter_<uuid>\nLIST<<ghadelimiter_<uuid>\n[1,\"two\",null,false,100]\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> STRING",
+        "Exported envvar -> TRUE",
+        "Exported envvar -> FALSE",
+        "Exported envvar -> NULL",
+        "Exported envvar -> ZERO",
+        "Exported envvar -> NEG_ZERO",
+        "Exported envvar -> ONE",
+        "Exported envvar -> ONE_POINT_ZERO",
+        "Exported envvar -> BIG",
+        "Exported envvar -> E20",
+        "Exported envvar -> SMALL",
+        "Exported envvar -> MICRO",
+        "Exported envvar -> LONG",
+        "Exported envvar -> NEG",
+        "Exported envvar -> FRACTION",
+        "Exported envvar -> MAX",
+        "Exported envvar -> MIN",
+        "Exported envvar -> OVERFLOW",
+        "Exported envvar -> HUNDRED",
+        "Exported envvar -> EXP",
+        "Exported envvar -> LIST",
+        ""
+      ]
+    },
+    {
+      "name": "null-values",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":null,\"b\":\"\",\"c\":\"x\"}"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n\nghadelimiter_<uuid>\nB<<ghadelimiter_<uuid>\n\nghadelimiter_<uuid>\nC<<ghadelimiter_<uuid>\nx\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "Exported envvar -> B",
+        "Exported envvar -> C",
+        ""
+      ]
+    },
+    {
+      "name": "multi-line-values",
+      "environ": {
+        "INPUT_SECRETS": "{\"lf\":\"one\\ntwo\",\"crlf\":\"one\\r\\ntwo\",\"cr\":\"one\\rtwo\",\"trailing\":\"x\\n\",\"blank\":\"\\n\\n\"}"
+      },
+      "exit_code": 0,
+      "github_env": "LF<<ghadelimiter_<uuid>\none\ntwo\nghadelimiter_<uuid>\nCRLF<<ghadelimiter_<uuid>\none\r\ntwo\nghadelimiter_<uuid>\nCR<<ghadelimiter_<uuid>\none\rtwo\nghadelimiter_<uuid>\nTRAILING<<ghadelimiter_<uuid>\nx\n\nghadelimiter_<uuid>\nBLANK<<ghadelimiter_<uuid>\n\n\n\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> LF",
+        "Exported envvar -> CRLF",
+        "Exported envvar -> CR",
+        "Exported envvar -> TRAILING",
+        "Exported envvar -> BLANK",
+        ""
+      ]
+    },
+    {
+      "name": "quotes-and-equals",
+      "environ": {
+        "INPUT_SECRETS": "{\"conn\":\"host=db;pass=\\\"p=1\\\"\",\"path\":\"C:\\\\dir\\\\file\"}"
+      },
+      "exit_code": 0,
+      "github_env": "CONN<<ghadelimiter_<uuid>\nhost=db;pass=\"p=1\"\nghadelimiter_<uuid>\nPATH<<ghadelimiter_<uuid>\nC:\\dir\\file\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> CONN",
+        "Exported envvar -> PATH",
+        ""
+      ]
+    },
+    {
+      "name": "unicode-names-upper",
+      "environ": {
+        "INPUT_SECRETS": "{\"stra\u00dfe\":\"1\",\"\u017f\":\"2\",\"\ufb01le\":\"3\",\"\u0130stanbul\":\"4\",\"na\u00efve\":\"5\",\"\\u00e9t\\u00e9\":\"6\"}"
+      },
+      "exit_code": 0,
+      "github_env": "STRASSE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nS<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nFILE<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\n\u0130STANBUL<<ghadelimiter_<uuid>\n4\nghadelimiter_<uuid>\nNA\u00cfVE<<ghadelimiter_<uuid>\n5\nghadelimiter_<uuid>\n\u00c9T\u00c9<<ghadelimiter_<uuid>\n6\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> STRASSE",
+        "Exported envvar -> S",
+        "Exported envvar -> FILE",
+        "Exported envvar -> \u0130STANBUL",
+        "Exported envvar -> NA\u00cfVE",
+        "Exported envvar -> \u00c9T\u00c9",
+        ""
+      ]
+    },
+    {
+      "name": "unicode-names-lower",
+      "environ": {
+        "INPUT_SECRETS": "{\"stra\u00dfe\":\"1\",\"\u017f\":\"2\",\"\ufb01le\":\"3\",\"\u0130stanbul\":\"4\",\"na\u00efve\":\"5\",\"\\u00e9t\\u00e9\":\"6\"}",
+        "INPUT_CONVERT": "lower"
+      },
+      "exit_code": 0,
+      "github_env": "stra\u00dfe<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n\u017f<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n\ufb01le<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\ni\u0307stanbul<<ghadelimiter_<uuid>\n4\nghadelimiter_<uuid>\nna\u00efve<<ghadelimiter_<uuid>\n5\nghadelimiter_<uuid>\n\u00e9t\u00e9<<ghadelimiter_<uuid>\n6\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> stra\u00dfe",
+        "Exported envvar -> \u017f",
+        "Exported envvar -> \ufb01le",
+        "Exported envvar -> i\u0307stanbul",
+        "Exported envvar -> na\u00efve",
+        "Exported envvar -> \u00e9t\u00e9",
+        ""
+      ]
+    },
+    {
+      "name": "unicode-values",
+      "environ": {
+        "INPUT_SECRETS": "{\"emoji\":\"\ud83d\ude00\",\"escaped\":\"\\u00e9\\ud83d\\ude00\",\"nested\":{\"k\":\"\u00e9\ud83d\ude00\"},\"lone\":\"\\ud800\",\"lone_nested\":[\"\\udc00\"],\"bidi\":\"\\u202e\"}"
+      },
+      "exit_code": 0,
+      "github_env": "EMOJI<<ghadelimiter_<uuid>\n\ud83d\ude00\nghadelimiter_<uuid>\nESCAPED<<ghadelimiter_<uuid>\n\u00e9\ud83d\ude00\nghadelimiter_<uuid>\nNESTED<<ghadelimiter_<uuid>\n{\"k\":\"\u00e9\ud83d\ude00\"}\nghadelimiter_<uuid>\nLONE<<ghadelimiter_<uuid>\n\ufffd\nghadelimiter_<uuid>\nLONE_NESTED<<ghadelimiter_<uuid>\n[\"\\udc00\"]\nghadelimiter_<uuid>\nBIDI<<ghadelimiter_<uuid>\n\u202e\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> EMOJI",
+        "Exported envvar -> ESCAPED",
+        "Exported envvar -> NESTED",
+        "Exported envvar -> LONE",
+        "Exported envvar -> LONE_NESTED",
+        "Exported envvar -> BIDI",
+        ""
+      ]
+    },
+    {
+      "name": "lone-surrogate-names",
+      "environ": {
+        "INPUT_SECRETS": "{\"\\ud800\":\"a\",\"\\udc00\":\"b\"}"
+      },
+      "exit_code": 0,
+      "github_env": "\ufffd<<ghadelimiter_<uuid>\na\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> \ufffd",
+        "Skip overwriting secret \ufffd",
+        ""
+      ]
+    },
+    {
+      "name": "integer-keys",
+      "environ": {
+        "INPUT_SECRETS": "{\"b\":\"1\",\"10\":\"2\",\"a\":\"3\",\"2\":\"4\",\"01\":\"5\",\"-1\":\"6\",\"1.5\":\"7\",\"4294967295\":\"8\",\"4294967294\":\"9\",\"0\":\"10\"}"
+      },
+      "exit_code": 0,
+      "github_env": "0<<ghadelimiter_<uuid>\n10\nghadelimiter_<uuid>\n2<<ghadelimiter_<uuid>\n4\nghadelimiter_<uuid>\n10<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n4294967294<<ghadelimiter_<uuid>\n9\nghadelimiter_<uuid>\nB<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nA<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\n01<<ghadelimiter_<uuid>\n5\nghadelimiter_<uuid>\n-1<<ghadelimiter_<uuid>\n6\nghadelimiter_<uuid>\n1.5<<ghadelimiter_<uuid>\n7\nghadelimiter_<uuid>\n4294967295<<ghadelimiter_<uuid>\n8\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> 0",
+        "Exported envvar -> 2",
+        "Exported envvar -> 10",
+        "Exported envvar -> 4294967294",
+        "Exported envvar -> B",
+        "Exported envvar -> A",
+        "Exported envvar -> 01",
+        "Exported envvar -> -1",
+        "Exported envvar -> 1.5",
+        "Exported envvar -> 4294967295",
+        ""
+      ]
+    },
+    {
+      "name": "duplicate-keys",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\",\"b\":\"2\",\"a\":\"3\"}"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\nB<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "Exported envvar -> B",
+        ""
+      ]
+    },
+    {
+      "name": "prefix",
+      "environ": {
+        "INPUT_SECRETS": "{\"one\":\"1\",\"Two\":\"2\"}",
+        "INPUT_PREFIX": "PRE_"
+      },
+      "exit_code": 0,
+      "github_env": "PRE_ONE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nPRE_TWO<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> PRE_ONE",
+        "Exported envvar -> PRE_TWO",
+        ""
+      ]
+    },
+    {
+      "name": "removeprefix-match",
+      "environ": {
+        "INPUT_SECRETS": "{\"app_one\":\"1\",\"app_two\":\"2\"}",
+        "INPUT_REMOVEPREFIX": "app_"
+      },
+      "exit_code": 0,
+      "github_env": "ONE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nTWO<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> ONE",
+        "Exported envvar -> TWO",
+        ""
+      ]
+    },
+    {
+      "name": "removeprefix-no-match",
+      "environ": {
+        "INPUT_SECRETS": "{\"app_one\":\"1\",\"other\":\"2\"}",
+        "INPUT_REMOVEPREFIX": "APP_"
+      },
+      "exit_code": 0,
+      "github_env": "APP_ONE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nOTHER<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> APP_ONE",
+        "Exported envvar -> OTHER",
+        ""
+      ]
+    },
+    {
+      "name": "prefix-and-removeprefix",
+      "environ": {
+        "INPUT_SECRETS": "{\"old_a\":\"1\",\"b\":\"2\",\"xold_c\":\"3\"}",
+        "INPUT_PREFIX": "NEW_",
+        "INPUT_REMOVEPREFIX": "old_"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nNEW_B<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nNEW_XOLD_C<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "Exported envvar -> NEW_B",
+        "Exported envvar -> NEW_XOLD_C",
+        ""
+      ]
+    },
+    {
+      "name": "removeprefix-whole-key",
+      "environ": {
+        "INPUT_SECRETS": "{\"only\":\"1\",\"other\":\"2\"}",
+        "INPUT_REMOVEPREFIX": "only"
+      },
+      "exit_code": 0,
+      "github_env": "<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nOTHER<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> ",
+        "Exported envvar -> OTHER",
+        ""
+      ]
+    },
+    {
+      "name": "include",
+      "environ": {
+        "INPUT_SECRETS": "{\"db_host\":\"h\",\"db_port\":\"5432\",\"api_token\":\"t\",\"other\":\"o\"}",
+        "INPUT_INCLUDE": "^db_, token$"
+      },
+      "exit_code": 0,
+      "github_env": "DB_HOST<<ghadelimiter_<uuid>\nh\nghadelimiter_<uuid>\nDB_PORT<<ghadelimiter_<uuid>\n5432\nghadelimiter_<uuid>\nAPI_TOKEN<<ghadelimiter_<uuid>\nt\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> DB_HOST",
+        "Exported envvar -> DB_PORT",
+        "Exported envvar -> API_TOKEN",
+        ""
+      ]
+    },
+    {
+      "name": "exclude",
+      "environ": {
+        "INPUT_SECRETS": "{\"db_host\":\"h\",\"db_port\":\"5432\",\"api_token\":\"t\",\"other\":\"o\"}",
+        "INPUT_EXCLUDE": "port, ^other$"
+      },
+      "exit_code": 0,
+      "github_env": "DB_HOST<<ghadelimiter_<uuid>\nh\nghadelimiter_<uuid>\nAPI_TOKEN<<ghadelimiter_<uuid>\nt\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> DB_HOST",
+        "Exported envvar -> API_TOKEN",
+        ""
+      ]
+    },
+    {
+      "name": "include-and-exclude",
+      "environ": {
+        "INPUT_SECRETS": "{\"db_host\":\"h\",\"db_port\":\"5432\",\"api_token\":\"t\",\"other\":\"o\"}",
+        "INPUT_INCLUDE": "^db_",
+        "INPUT_EXCLUDE": "port"
+      },
+      "exit_code": 0,
+      "github_env": "DB_HOST<<ghadelimiter_<uuid>\nh\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> DB_HOST",
+        ""
+      ]
+    },
+    {
+      "name": "include-trailing-comma",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\",\"b\":\"2\"}",
+        "INPUT_INCLUDE": "^a,"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nB<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "Exported envvar -> B",
+        ""
+      ]
+    },
+    {
+      "name": "exclude-trailing-comma",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\",\"b\":\"2\"}",
+        "INPUT_EXCLUDE": "^a,"
+      },
+      "exit_code": 0,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        ""
+      ]
+    },
+    {
+      "name": "regex-ascii-classes",
+      "environ": {
+        "INPUT_SECRETS": "{\"s\u00fc\u00df\":\"1\",\"plain\":\"2\",\"\u0663\":\"3\",\"12\":\"4\"}",
+        "INPUT_INCLUDE": "^\\w+$,^\\d+$"
+      },
+      "exit_code": 0,
+      "github_env": "12<<ghadelimiter_<uuid>\n4\nghadelimiter_<uuid>\nPLAIN<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> 12",
+        "Exported envvar -> PLAIN",
+        ""
+      ]
+    },
+    {
+      "name": "invalid-regex-empty-object",
+      "environ": {
+        "INPUT_SECRETS": "{}",
+        "INPUT_INCLUDE": "("
+      },
+      "exit_code": 0,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        ""
+      ]
+    },
+    {
+      "name": "invalid-regex",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\",\"b\":\"2\"}",
+        "INPUT_EXCLUDE": "["
+      },
+      "exit_code": 1,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        "::error::Invalid regular expression: /[/: Unterminated character class",
+        ""
+      ]
+    },
+    {
+      "name": "invalid-regex-partial",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\",\"b\":\"2\"}",
+        "INPUT_INCLUDE": "^a$,("
+      },
+      "exit_code": 1,
+      "github_env": "A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "::error::Invalid regular expression: /(/: Unterminated group",
+        ""
+      ]
+    },
+    {
+      "name": "github-token",
+      "environ": {
+        "INPUT_SECRETS": "{\"github_token\":\"1\",\"GITHUB_TOKEN\":\"2\",\"my_github_token_old\":\"3\",\"Github_Token\":\"4\"}"
+      },
+      "exit_code": 0,
+      "github_env": "GITHUB_TOKEN<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> GITHUB_TOKEN",
+        "Skip overwriting secret GITHUB_TOKEN",
+        ""
+      ]
+    },
+    {
+      "name": "override-false-existing",
+      "environ": {
+        "INPUT_SECRETS": "{\"existing\":\"new\",\"empty\":\"filled\",\"fresh\":\"x\"}",
+        "EXISTING": "old",
+        "EMPTY": ""
+      },
+      "exit_code": 0,
+      "github_env": "EMPTY<<ghadelimiter_<uuid>\nfilled\nghadelimiter_<uuid>\nFRESH<<ghadelimiter_<uuid>\nx\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Skip overwriting secret EXISTING",
+        "Exported envvar -> EMPTY",
+        "Exported envvar -> FRESH",
+        ""
+      ]
+    },
+    {
+      "name": "override-true-existing",
+      "environ": {
+        "INPUT_SECRETS": "{\"existing\":\"new\",\"empty\":\"filled\",\"fresh\":\"x\"}",
+        "INPUT_OVERRIDE": "true",
+        "EXISTING": "old",
+        "EMPTY": ""
+      },
+      "exit_code": 0,
+      "github_env": "EXISTING<<ghadelimiter_<uuid>\nnew\nghadelimiter_<uuid>\nEMPTY<<ghadelimiter_<uuid>\nfilled\nghadelimiter_<uuid>\nFRESH<<ghadelimiter_<uuid>\nx\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "::warning::Will re-write \"EXISTING\" environment variable.",
+        "Exported envvar -> EXISTING",
+        "Exported envvar -> EMPTY",
+        "Exported envvar -> FRESH",
+        ""
+      ]
+    },
+    {
+      "name": "override-not-exactly-true",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\"}",
+        "INPUT_OVERRIDE": "TRUE",
+        "A": "x"
+      },
+      "exit_code": 0,
+      "github_env": "",
+      "github_output": null,
+      "stdout": [
+        "Skip overwriting secret A",
+        ""
+      ]
+    },
+    {
+      "name": "collision-override-false",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"lower\",\"A\":\"upper\"}"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\nlower\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "Skip overwriting secret A",
+        ""
+      ]
+    },
+    {
+      "name": "collision-override-true",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"lower\",\"A\":\"upper\"}",
+        "INPUT_OVERRIDE": "true"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\nlower\nghadelimiter_<uuid>\nA<<ghadelimiter_<uuid>\nupper\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "::warning::Will re-write \"A\" environment variable.",
+        "Exported envvar -> A",
+        ""
+      ]
+    },
+    {
+      "name": "nul-in-values",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"\\u0000x\",\"A\":\"y\",\"b\":\"x\\u0000y\"}"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n\u0000x\nghadelimiter_<uuid>\nA<<ghadelimiter_<uuid>\ny\nghadelimiter_<uuid>\nB<<ghadelimiter_<uuid>\nx\u0000y\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "Exported envvar -> A",
+        "Exported envvar -> B",
+        ""
+      ]
+    },
+    {
+      "name": "tracelog",
+      "environ": {
+        "INPUT_SECRETS": "{\"keep_x1\":\"1\",\"keep_2\":\"2\",\"keep_skip\":\"3\",\"drop\":\"4\"}",
+        "INPUT_INCLUDE": "^keep",
+        "INPUT_EXCLUDE": "skip",
+        "INPUT_PREFIX": "P_",
+        "INPUT_REMOVEPREFIX": "keep_x",
+        "INPUT_TRACELOG": "true"
+      },
+      "exit_code": 0,
+      "github_env": "1<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nP_KEEP_2<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "::debug::Using include list: ^keep",
+        "::debug::Using exclude list: github_token, skip",
+        "::debug::Adding prefix: P_",
+        "::debug::Removing prefix: keep_x",
+        "::debug::Override: false",
+        "::debug::Convert: upper",
+        "::debug::removing prefix from keep_x1",
+        "::debug::prefix removal keep_x1 -> 1",
+        "Exported envvar -> 1",
+        "::debug::adding prefix to keep_2",
+        "::debug::prefix add keep_2 -> P_keep_2",
+        "Exported envvar -> P_KEEP_2",
+        "::debug::excluding keep_skip as in excludelist",
+        "excluding drop as not in includelist",
+        ""
+      ]
+    },
+    {
+      "name": "tracelog-defaults",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\"}",
+        "INPUT_TRACELOG": "true"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "::debug::Using include list: undefined",
+        "::debug::Using exclude list: github_token",
+        "::debug::Adding prefix: ",
+        "::debug::Removing prefix: ",
+        "::debug::Override: false",
+        "::debug::Convert: upper",
+        "Exported envvar -> A",
+        ""
+      ]
+    },
+    {
+      "name": "tracelog-not-exactly-true",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\"}",
+        "INPUT_TRACELOG": "True"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        ""
+      ]
+    },
+    {
+      "name": "convert-lower",
+      "environ": {
+        "INPUT_SECRETS": "{\"Mixed_Case\":\"1\",\"UPPER\":\"2\"}",
+        "INPUT_CONVERT": "lower"
+      },
+      "exit_code": 0,
+      "github_env": "mixed_case<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nupper<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> mixed_case",
+        "Exported envvar -> upper",
+        ""
+      ]
+    },
+    {
+      "name": "convert-upper",
+      "environ": {
+        "INPUT_SECRETS": "{\"Mixed_Case\":\"1\",\"lower\":\"2\"}",
+        "INPUT_CONVERT": "upper"
+      },
+      "exit_code": 0,
+      "github_env": "MIXED_CASE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nLOWER<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> MIXED_CASE",
+        "Exported envvar -> LOWER",
+        ""
+      ]
+    },
+    {
+      "name": "convert-unknown",
+      "environ": {
+        "INPUT_SECRETS": "{\"Mixed_Case\":\"1\"}",
+        "INPUT_CONVERT": "Title"
+      },
+      "exit_code": 0,
+      "github_env": "MIXED_CASE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> MIXED_CASE",
+        ""
+      ]
+    },
+    {
+      "name": "convert-none",
+      "environ": {
+        "INPUT_SECRETS": "{\"Mixed_Case\":\"1\"}",
+        "INPUT_CONVERT": "none"
+      },
+      "exit_code": 0,
+      "github_env": "MIXED_CASE<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> MIXED_CASE",
+        ""
+      ]
+    },
+    {
+      "name": "inherited-names-lower",
+      "environ": {
+        "INPUT_SECRETS": "{\"constructor\":\"1\",\"__proto__\":\"2\",\"toString\":\"3\",\"valueOf\":\"4\"}",
+        "INPUT_CONVERT": "lower"
+      },
+      "exit_code": 0,
+      "github_env": "tostring<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\nvalueof<<ghadelimiter_<uuid>\n4\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Skip overwriting secret constructor",
+        "Skip overwriting secret __proto__",
+        "Exported envvar -> tostring",
+        "Exported envvar -> valueof",
+        ""
+      ]
+    },
+    {
+      "name": "inherited-names-upper",
+      "environ": {
+        "INPUT_SECRETS": "{\"constructor\":\"1\",\"__proto__\":\"2\",\"toString\":\"3\",\"valueOf\":\"4\"}"
+      },
+      "exit_code": 0,
+      "github_env": "CONSTRUCTOR<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n__PROTO__<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nTOSTRING<<ghadelimiter_<uuid>\n3\nghadelimiter_<uuid>\nVALUEOF<<ghadelimiter_<uuid>\n4\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> CONSTRUCTOR",
+        "Exported envvar -> __PROTO__",
+        "Exported envvar -> TOSTRING",
+        "Exported envvar -> VALUEOF",
+        ""
+      ]
+    },
+    {
+      "name": "key-line-feed",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\\nb\":\"1\",\"c\":\"2\"}"
+      },
+      "exit_code": 0,
+      "github_env": "A\nB<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nC<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        "B",
+        "Exported envvar -> C",
+        ""
+      ]
+    },
+    {
+      "name": "key-carriage-return",
+      "environ": {
+        "INPUT_SECRETS": "{\"c\":\"2\",\"a\\rb\":\"1\"}"
+      },
+      "exit_code": 0,
+      "github_env": "C<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nA\rB<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> C",
+        "Exported envvar -> A\rB",
+        ""
+      ]
+    },
+    {
+      "name": "key-equals",
+      "environ": {
+        "INPUT_SECRETS": "{\"c\":\"2\",\"a=b\":\"1\"}"
+      },
+      "exit_code": 0,
+      "github_env": "C<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nA=B<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> C",
+        "Exported envvar -> A=B",
+        ""
+      ]
+    },
+    {
+      "name": "key-heredoc",
+      "environ": {
+        "INPUT_SECRETS": "{\"c\":\"2\",\"a<<b\":\"1\"}"
+      },
+      "exit_code": 0,
+      "github_env": "C<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nA<<B<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> C",
+        "Exported envvar -> A<<B",
+        ""
+      ]
+    },
+    {
+      "name": "key-empty",
+      "environ": {
+        "INPUT_SECRETS": "{\"c\":\"2\",\"\":\"1\"}"
+      },
+      "exit_code": 0,
+      "github_env": "C<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> C",
+        "Exported envvar -> ",
+        ""
+      ]
+    },
+    {
+      "name": "key-nul",
+      "environ": {
+        "INPUT_SECRETS": "{\"c\":\"2\",\"a\\u0000b\":\"1\"}"
+      },
+      "exit_code": 0,
+      "github_env": "C<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\nA\u0000B<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> C",
+        "Exported envvar -> A\u0000B",
+        ""
+      ]
+    },
+    {
+      "name": "mask-requested",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"one\\ntwo\"}",
+        "INPUT_MASK": "true"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\none\ntwo\nghadelimiter_<uuid>\n",
+      "github_output": null,
+      "stdout": [
+        "Exported envvar -> A",
+        ""
+      ]
+    },
+    {
+      "name": "outputs",
+      "environ": {
+        "INPUT_SECRETS": "{\"a\":\"1\",\"b\":\"2\"}"
+      },
+      "exit_code": 0,
+      "github_env": "A<<ghadelimiter_<uuid>\n1\nghadelimiter_<uuid>\nB<<ghadelimiter_<uuid>\n2\nghadelimiter_<uuid>\n",
+      "github_output": "",
+      "stdout": [
+        "Exported envvar -> A",
+        "Exported envvar -> B",
+        ""
+      ]
+    }
+  ]
+}
