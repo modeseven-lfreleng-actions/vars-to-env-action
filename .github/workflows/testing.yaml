@@ -20,24 +20,29 @@ concurrency:
 permissions: {}
 
 jobs:
-  ### Test the GitHub Action in this Repository ###
-  tests:
-    name: "Test local GitHub Action"
-    runs-on: ubuntu-latest
+  unit-tests:
+    name: "Unit tests (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
-    timeout-minutes: 10 # Increase this timeout value as needed
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     steps:
       # Load the egress allow-list out-of-band from the
       # organisation's .github repository and publish it as
       # $CONNECTION_ALLOW_LIST for the harden-runner step below.
       # yamllint disable-line rule:line-length
       - uses: lfreleng-actions/harden-runner-block-action@a32eb064a1188f6b0f15d2c0c0381efe54b0dd22  # v0.12.2
+        if: runner.os == 'Linux'
         with:
           config: '@18d9c4446bea555d0783e850f6d295f844fe8f67'  # v0.1.1
 
       # Harden the runner with the just-loaded allow-list.
       - name: 'Harden runner (block)'
+        if: runner.os == 'Linux'
         # yamllint disable-line rule:line-length
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1  # v2.21.1
         with:
@@ -50,41 +55,310 @@ jobs:
         with:
           persist-credentials: false
 
-      # Perform setup prior to running test(s)
-      - name: "Testing setup step"
+      # No setup step: the tests run on the Python the runner image
+      # provides, as the action itself does.
+      - name: "Run unit tests"
         shell: bash
         run: |
-          # Testing setup step
-          echo "Testing setup step"
-          echo "Testing setup step/summary output" >> "$GITHUB_STEP_SUMMARY"
+          # Run unit tests
+          python=python3
+          if ! python3 -c "" >/dev/null 2>&1; then
+            python=python
+          fi
+          "$python" --version
+          "$python" -m unittest discover -s tests -v
 
-      - name: "Running local action: ${{ github.repository }}"
+  integration:
+    name: "Integration tests (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    # Variables already set before the action runs, for the override cases.
+    env:
+      VTE_KEPT: "from the job"
+      VTE_REPLACED: "from the job"
+      VTE_EMPTY: ""
+    steps:
+      # Load the egress allow-list out-of-band from the
+      # organisation's .github repository and publish it as
+      # $CONNECTION_ALLOW_LIST for the harden-runner step below.
+      # yamllint disable-line rule:line-length
+      - uses: lfreleng-actions/harden-runner-block-action@a32eb064a1188f6b0f15d2c0c0381efe54b0dd22  # v0.12.2
+        if: runner.os == 'Linux'
+        with:
+          config: '@18d9c4446bea555d0783e850f6d295f844fe8f67'  # v0.1.1
+
+      # Harden the runner with the just-loaded allow-list.
+      - name: 'Harden runner (block)'
+        if: runner.os == 'Linux'
+        # yamllint disable-line rule:line-length
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1  # v2.21.1
+        with:
+          egress-policy: 'block'
+          allowed-endpoints: >
+            ${{ env.CONNECTION_ALLOW_LIST }}
+
+      - name: "Checkout repository"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The value of vte_multi_line holds a line that could pass for a
+      # heredoc delimiter, and vte_quotes holds shell syntax that must
+      # arrive unexpanded.
+      - name: "Export values of every JSON type"
+        id: types
         uses: $/
         with:
-          input: "test input 💬"
+          secrets: |
+            {
+              "vte_plain": "plain value",
+              "vte_multi_line": "first line\nEOF\n\nlast line",
+              "vte_quotes": "a=b \"double\" 'single' $HOME `pwd` \\ end",
+              "vte_unicode": "héllo wörld ✓ 日本語",
+              "vte_number": 1.0,
+              "vte_large": 1e21,
+              "vte_true": true,
+              "vte_null": null,
+              "vte_nested": {"b": [1, "x"], "a": null},
+              "my_github_token_old": "always excluded"
+            }
 
-      - name: "Validated local action: ${{ github.repository }}"
+      # removeprefix is literal and case-sensitive, and a key it shortens
+      # does not also receive the prefix.
+      - name: "Rename with prefix and removeprefix"
+        id: renamed
+        uses: $/
+        with:
+          secrets: |
+            {
+              "APP_vte_removed": "removed",
+              "app_vte_case": "case",
+              "vte_prefixed": "prefixed"
+            }
+          prefix: "CI_"
+          removeprefix: "APP_"
+
+      # The empty entries in each list are ignored rather than matching
+      # every key.
+      - name: "Filter with include and exclude"
+        id: filtered
+        uses: $/
+        with:
+          secrets: |
+            {"vte_keep_one": "1", "vte_keep_two": "2", "vte_skip": "3"}
+          include: "^vte_keep, ,"
+          exclude: "_two$,"
+          tracelog: "true"
+
+      - name: "Convert names to lower case"
+        id: lower
+        uses: $/
+        with:
+          secrets: '{"VTE_Lower": "lower"}'
+          convert: "lower"
+
+      - name: "Keep names as given"
+        id: unconverted
+        uses: $/
+        with:
+          secrets: '{"Vte_None": "none"}'
+          convert: "none"
+
+      # VTE_KEPT is set by the job, so it stays; VTE_EMPTY is set but
+      # empty, which counts as unset.
+      - name: "Keep variables that are already set"
+        id: kept
+        uses: $/
+        with:
+          secrets: '{"vte_kept": "from the action", "vte_empty": "filled"}'
+
+      - name: "Override variables that are already set"
+        id: replaced
+        uses: $/
+        with:
+          secrets: '{"vte_replaced": "from the action"}'
+          override: "true"
+
+      - name: "Mask exported values"
+        id: masked
+        uses: $/
+        with:
+          secrets: '{"vte_masked": "masked first line\n\nmasked last line"}'
+          mask: "true"
+
+      # github_token is excluded whatever include and exclude say, since
+      # toJSON(secrets) always carries it. Tested with a literal key: a
+      # test that fed the real secrets context to an action would read
+      # as an exfiltration attempt, and GitHub holds such workflows for
+      # approval.
+      - name: "Never export github_token"
+        id: token_excluded
+        uses: $/
+        with:
+          secrets: '{"github_token": "never exported", "vte_beside": "kept"}'
+
+      # Callers commonly pass toJSON(vars). The include pattern matches no
+      # real variable, so the step proves the context parses and exports
+      # nothing, wherever the workflow runs.
+      - name: "Read the vars context"
+        id: vars_context
+        uses: $/
+        with:
+          secrets: ${{ toJSON(vars) }}
+          include: "^VTE_NO_SUCH_VARIABLE$"
+
+      # Each of these must fail before exporting anything, including the
+      # keys that precede the problem.
+      - name: "Fail: empty secrets"
+        id: empty
+        continue-on-error: true
+        uses: $/
+        with:
+          secrets: ""
+
+      - name: "Fail: whitespace-only secrets"
+        id: blank
+        continue-on-error: true
+        uses: $/
+        with:
+          secrets: "  "
+
+      - name: "Fail: invalid JSON"
+        id: invalid_json
+        continue-on-error: true
+        uses: $/
+        with:
+          secrets: '{"vte_partial_json": "x",'
+
+      - name: "Fail: JSON array"
+        id: array
+        continue-on-error: true
+        uses: $/
+        with:
+          secrets: '[{"vte_partial_array": "x"}]'
+
+      - name: "Fail: invalid regular expression"
+        id: invalid_regex
+        continue-on-error: true
+        uses: $/
+        with:
+          secrets: '{"vte_partial_regex": "x"}'
+          exclude: "(unclosed"
+
+      - name: "Fail: key containing '='"
+        id: bad_key
+        continue-on-error: true
+        uses: $/
+        with:
+          secrets: '{"vte_partial_first": "x", "bad=key": "y"}'
+
+      - name: "Check exported variables and outputs"
         shell: bash
         env:
-          REPO: ${{ github.repository }}
-        run: |
-          # Local action validation
-          echo "Validated local action: $REPO"
-          echo "Validation step summary output" >> "$GITHUB_STEP_SUMMARY"
+          EXPECTED_MULTI_LINE: |-
+            first line
+            EOF
 
-      # yamllint disable-line rule:line-length
-      - name: "Running local action: ${{ github.repository }} [Override Failure]"
-        uses: $/
-        id: failure
-        continue-on-error: true
-        with:
-          invalid_input: "Some garbage"
+            last line
+          EXPECTED_QUOTES: |-
+            a=b "double" 'single' $HOME `pwd` \ end
+          EXPECTED_UNICODE: "héllo wörld ✓ 日本語"
+          EXPECTED_MASKED: |-
+            masked first line
 
-      # Failure testing is also important
-      - name: "Error if step above did NOT fail"
-        if: steps.failure.outcome == 'success'
-        shell: bash
+            masked last line
+          TYPES_COUNT: ${{ steps.types.outputs.count }}
+          TYPES_NAMES: ${{ steps.types.outputs.names }}
+          RENAMED_NAMES: ${{ steps.renamed.outputs.names }}
+          FILTERED_COUNT: ${{ steps.filtered.outputs.count }}
+          FILTERED_NAMES: ${{ steps.filtered.outputs.names }}
+          KEPT_NAMES: ${{ steps.kept.outputs.names }}
+          REPLACED_NAMES: ${{ steps.replaced.outputs.names }}
+          TOKEN_NAMES: ${{ steps.token_excluded.outputs.names }}
+          VARS_COUNT: ${{ steps.vars_context.outputs.count }}
+          EMPTY_OUTCOME: ${{ steps.empty.outcome }}
+          BLANK_OUTCOME: ${{ steps.blank.outcome }}
+          INVALID_JSON_OUTCOME: ${{ steps.invalid_json.outcome }}
+          ARRAY_OUTCOME: ${{ steps.array.outcome }}
+          INVALID_REGEX_OUTCOME: ${{ steps.invalid_regex.outcome }}
+          BAD_KEY_OUTCOME: ${{ steps.bad_key.outcome }}
+          BAD_KEY_NAMES: ${{ steps.bad_key.outputs.names }}
         run: |
-          # Error if step above did NOT fail
-          echo "Error: previous test step did NOT fail ❌"
-          exit 1
+          # Check exported variables and outputs
+          status=0
+          check() {
+            # check LABEL ACTUAL EXPECTED
+            if [ "$2" != "$3" ]; then
+              echo "::error::$1 is [$2], expected [$3]"
+              status=1
+            fi
+          }
+          absent() {
+            # absent NAME: the variable must not be set
+            if printenv "$1" >/dev/null; then
+              echo "::error::$1 is set, but nothing should have exported it"
+              status=1
+            fi
+          }
+
+          check VTE_PLAIN "$VTE_PLAIN" "plain value"
+          check VTE_MULTI_LINE "$VTE_MULTI_LINE" "$EXPECTED_MULTI_LINE"
+          check VTE_QUOTES "$VTE_QUOTES" "$EXPECTED_QUOTES"
+          check VTE_UNICODE "$VTE_UNICODE" "$EXPECTED_UNICODE"
+          check VTE_NUMBER "$VTE_NUMBER" "1"
+          check VTE_LARGE "$VTE_LARGE" "1e+21"
+          check VTE_TRUE "$VTE_TRUE" "true"
+          check VTE_NESTED "$VTE_NESTED" '{"b":[1,"x"],"a":null}'
+          absent MY_GITHUB_TOKEN_OLD
+          check "types count" "$TYPES_COUNT" "9"
+          types="VTE_PLAIN,VTE_MULTI_LINE,VTE_QUOTES,VTE_UNICODE,VTE_NUMBER"
+          types="$types,VTE_LARGE,VTE_TRUE,VTE_NULL,VTE_NESTED"
+          check "types names" "$TYPES_NAMES" "$types"
+
+          check VTE_REMOVED "$VTE_REMOVED" "removed"
+          check CI_APP_VTE_CASE "$CI_APP_VTE_CASE" "case"
+          check CI_VTE_PREFIXED "$CI_VTE_PREFIXED" "prefixed"
+          check "renamed names" "$RENAMED_NAMES" \
+            "VTE_REMOVED,CI_APP_VTE_CASE,CI_VTE_PREFIXED"
+
+          check VTE_KEEP_ONE "$VTE_KEEP_ONE" "1"
+          absent VTE_KEEP_TWO
+          absent VTE_SKIP
+          check "filtered count" "$FILTERED_COUNT" "1"
+          check "filtered names" "$FILTERED_NAMES" "VTE_KEEP_ONE"
+
+          check vte_lower "$(printenv vte_lower)" "lower"
+          check Vte_None "$(printenv Vte_None)" "none"
+
+          check VTE_KEPT "$VTE_KEPT" "from the job"
+          check VTE_EMPTY "$VTE_EMPTY" "filled"
+          check "kept names" "$KEPT_NAMES" "VTE_EMPTY"
+          check VTE_REPLACED "$VTE_REPLACED" "from the action"
+          check "replaced names" "$REPLACED_NAMES" "VTE_REPLACED"
+
+          check VTE_MASKED "$VTE_MASKED" "$EXPECTED_MASKED"
+
+          check "github_token names" "$TOKEN_NAMES" "VTE_BESIDE"
+          check VTE_BESIDE "${VTE_BESIDE:-}" "kept"
+          absent GITHUB_TOKEN
+          check "vars context count" "$VARS_COUNT" "0"
+
+          check "empty secrets" "$EMPTY_OUTCOME" "failure"
+          check "whitespace-only secrets" "$BLANK_OUTCOME" "failure"
+          check "invalid JSON" "$INVALID_JSON_OUTCOME" "failure"
+          check "JSON array" "$ARRAY_OUTCOME" "failure"
+          check "invalid regular expression" "$INVALID_REGEX_OUTCOME" \
+            "failure"
+          check "key containing '='" "$BAD_KEY_OUTCOME" "failure"
+          check "key containing '=' names" "$BAD_KEY_NAMES" ""
+          absent VTE_PARTIAL_JSON
+          absent VTE_PARTIAL_ARRAY
+          absent VTE_PARTIAL_REGEX
+          absent VTE_PARTIAL_FIRST
+          exit "$status"
